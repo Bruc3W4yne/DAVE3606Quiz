@@ -6,10 +6,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const scoreTextElement = document.getElementById('score-text');
     const questionArea = document.getElementById('question-area');
     const restartButton = document.getElementById('restart-btn');
+    const questionLimitInput = document.getElementById('question-limit');
+    const feedbackListElement = document.getElementById('feedback-list');
+    const liveScoreElement = document.getElementById('live-score');
 
     let currentQuestionIndex = 0;
     let score = 0;
     let shuffledQuestions = [];
+    let incorrectlyAnsweredLectures = [];
 
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
@@ -19,25 +23,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startQuiz() {
-        shuffledQuestions = [...questions]; // Make a copy to shuffle
+        shuffledQuestions = [...questions];
         shuffleArray(shuffledQuestions);
+
+        const limit = parseInt(questionLimitInput.value, 10);
+        if (!isNaN(limit) && limit > 0 && limit < shuffledQuestions.length) {
+            shuffledQuestions = shuffledQuestions.slice(0, limit);
+        }
 
         currentQuestionIndex = 0;
         score = 0;
+        incorrectlyAnsweredLectures = [];
         resultArea.style.display = 'none';
+        feedbackListElement.innerHTML = '';
         questionArea.style.display = 'block';
         nextButton.textContent = 'Next Question';
-        nextButton.style.display = 'block'; // Ensure next button is visible
-        restartButton.style.display = 'none'; // Hide restart button during quiz
+        nextButton.style.display = 'block';
+        restartButton.style.display = 'none';
+        updateLiveScore();
         loadQuestion();
     }
 
     function loadQuestion() {
         if (currentQuestionIndex < shuffledQuestions.length) {
+            updateLiveScore();
             const currentQuestion = shuffledQuestions[currentQuestionIndex];
             questionTextElement.textContent = currentQuestion.text;
             optionsContainer.innerHTML = '';
-            nextButton.disabled = true; // Disable until an option is selected
+            nextButton.disabled = true;
 
             const shuffledOptions = [...currentQuestion.options];
             shuffleArray(shuffledOptions);
@@ -55,14 +68,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function selectAnswer(selectedButton, isCorrect, allOriginalOptions) {
         const optionButtons = optionsContainer.getElementsByTagName('button');
+        const currentQuestion = shuffledQuestions[currentQuestionIndex];
+
         for (let btn of optionButtons) {
-            btn.disabled = true; // Disable all buttons
-            // Find the original option text to check its correctness
+            btn.disabled = true;
             const originalOption = allOriginalOptions.find(opt => opt.text === btn.textContent);
             if (originalOption) {
                 if (originalOption.correct) {
                     btn.classList.add('correct');
-                } else if (btn === selectedButton) { // Only mark the selected one as incorrect if it was wrong
+                } else if (btn === selectedButton) {
                     btn.classList.add('incorrect');
                 }
             }
@@ -70,16 +84,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isCorrect) {
             score++;
+        } else {
+            if (currentQuestion.lecture) {
+                incorrectlyAnsweredLectures.push(currentQuestion.lecture);
+            }
         }
+        updateLiveScore();
         nextButton.disabled = false;
+    }
+
+    function updateLiveScore() {
+        if (liveScoreElement) {
+            liveScoreElement.textContent = `Score: ${score} / ${currentQuestionIndex}`;
+        }
     }
 
     function showResults() {
         questionArea.style.display = 'none';
         resultArea.style.display = 'block';
         scoreTextElement.textContent = `${score} out of ${shuffledQuestions.length}`;
-        nextButton.style.display = 'none'; // Hide next button on results page
-        restartButton.style.display = 'block'; // Show restart button
+        nextButton.style.display = 'none';
+        restartButton.style.display = 'block';
+
+        generateFeedback();
+    }
+
+    function generateFeedback() {
+        feedbackListElement.innerHTML = '';
+        if (incorrectlyAnsweredLectures.length === 0) {
+            const li = document.createElement('li');
+            li.textContent = 'Great job! No specific areas flagged for review.';
+            feedbackListElement.appendChild(li);
+            return;
+        }
+
+        const lectureCounts = incorrectlyAnsweredLectures.reduce((acc, lecture) => {
+            acc[lecture] = (acc[lecture] || 0) + 1;
+            return acc;
+        }, {});
+
+        const sortedLectures = Object.entries(lectureCounts).sort(([, countA], [, countB]) => countB - countA);
+
+        sortedLectures.forEach(([lecture, count]) => {
+            const li = document.createElement('li');
+            li.textContent = `${lecture} (${count} incorrect)`;
+            feedbackListElement.appendChild(li);
+        });
     }
 
     nextButton.addEventListener('click', () => {
@@ -88,9 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     restartButton.addEventListener('click', startQuiz);
+    questionLimitInput.addEventListener('change', startQuiz);
 
     if (typeof questions !== 'undefined' && questions.length > 0) {
-        startQuiz(); // Initialize the quiz if questions are loaded
+        startQuiz();
     } else {
         questionTextElement.textContent = 'No questions loaded. Please check questions.js.';
         optionsContainer.innerHTML = '';
