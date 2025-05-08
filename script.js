@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentQuestionIndex = 0;
     let score = 0;
     let shuffledQuestions = [];
-    let incorrectlyAnsweredLectures = [];
+    let incorrectlyAnsweredQuestions = [];
 
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentQuestionIndex = 0;
         score = 0;
-        incorrectlyAnsweredLectures = [];
+        incorrectlyAnsweredQuestions = [];
         resultArea.style.display = 'none';
         feedbackListElement.innerHTML = '';
         questionArea.style.display = 'block';
@@ -85,9 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isCorrect) {
             score++;
         } else {
-            if (currentQuestion.lecture) {
-                incorrectlyAnsweredLectures.push(currentQuestion.lecture);
-            }
+            incorrectlyAnsweredQuestions.push(currentQuestion);
         }
         updateLiveScore();
         nextButton.disabled = false;
@@ -111,23 +109,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function generateFeedback() {
         feedbackListElement.innerHTML = '';
-        if (incorrectlyAnsweredLectures.length === 0) {
+        if (incorrectlyAnsweredQuestions.length === 0) {
             const li = document.createElement('li');
             li.textContent = 'Great job! No specific areas flagged for review.';
             feedbackListElement.appendChild(li);
             return;
         }
 
-        const lectureCounts = incorrectlyAnsweredLectures.reduce((acc, lecture) => {
-            acc[lecture] = (acc[lecture] || 0) + 1;
-            return acc;
-        }, {});
-
-        const sortedLectures = Object.entries(lectureCounts).sort(([, countA], [, countB]) => countB - countA);
-
-        sortedLectures.forEach(([lecture, count]) => {
+        incorrectlyAnsweredQuestions.forEach(question => {
             const li = document.createElement('li');
-            li.textContent = `${lecture} (${count} incorrect)`;
+            const lectureInfo = question.lecture ? `(Lecture ${question.lecture_num || 'N/A'})` : '';
+            li.textContent = `${lectureInfo}: ${question.text}`;
             feedbackListElement.appendChild(li);
         });
     }
